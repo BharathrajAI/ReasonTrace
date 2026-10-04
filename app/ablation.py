@@ -1,5 +1,5 @@
 from llm_client import ask
-
+from claim_comparator import compare_claim
 
 def build_prompt(question: str, memories: list[str]) -> str:
 
@@ -39,10 +39,66 @@ def run_ablation(
         remaining_memories
     )
 
-    answer = ask(prompt)
+    return ask(prompt)
 
-    return answer
 
+def run_all_ablations(
+    question: str,
+    memories: list[str]
+):
+
+    results = []
+
+    for index, memory in enumerate(memories):
+
+        print(f"\nTesting removal of M{index + 1}...")
+        print("Removed:", memory)
+
+        answer = run_ablation(
+            question,
+            memories,
+            remove_index=index
+        )
+
+        results.append({
+            "memory_index": index,
+            "memory": memory,
+            "answer": answer
+        })
+
+        print("Answer:", answer)
+
+    return results
+
+def analyze_ablation_results(
+    results: list[dict],
+    target_claim: str
+):
+
+    print("\n" + "=" * 50)
+    print("REASONTRACE DIAGNOSIS")
+    print("=" * 50)
+
+    for result in results:
+
+        memory_number = result["memory_index"] + 1
+        ablated_answer = result["answer"]
+
+        claim_survives = compare_claim(
+            target_claim,
+            ablated_answer
+        )
+
+        if claim_survives:
+            status = "NOT NECESSARY"
+        else:
+            status = "INFLUENTIAL"
+
+        print(f"\nM{memory_number}")
+        print("Memory:", result["memory"])
+        print("Answer:", ablated_answer)
+        print("Claim survives:", claim_survives)
+        print("Status:", status)
 
 if __name__ == "__main__":
 
@@ -54,21 +110,26 @@ if __name__ == "__main__":
         "Bharath likes Python"
     ]
 
-    # Remove M2
-    answer = run_ablation(
+    print("\nRunning all memory ablations...")
+
+    results = run_all_ablations(
         question,
-        memories,
-        remove_index=2
+        memories
     )
 
-    print("\nRemoved memory:")
-    print("-", memories[2])
+    print("\n" + "=" * 50)
+    print("ABLATION RESULTS")
+    print("=" * 50)
 
-    print("\nRemaining memories:")
+    for result in results:
 
-    for index, memory in enumerate(memories):
-        if index != 2:
-            print("-", memory)
+        print(f"\nM{result['memory_index'] + 1}:")
+        print("Memory:", result["memory"])
+        print("Answer:", result["answer"])
+        
+    target_claim = "Bharath currently lives in Bangalore."
 
-    print("\nLLM Answer:")
-    print(answer)
+    analyze_ablation_results(
+        results,
+        target_claim
+    )
